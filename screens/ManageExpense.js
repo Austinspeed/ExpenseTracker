@@ -1,17 +1,22 @@
-import { useContext, useLayoutEffect } from "react";
+import { useContext, useLayoutEffect, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import IconButton from "../components/UI/IconButton";
 import { GlobalStyles } from "../constants/styles";
 import { ExpensesContext } from "../store/expenses-context";
 import ExpenseForm from "../components/ManageExpense/ExpenseForm";
-import { storeExpense } from "../util/http";
+import { deleteExpenses, storeExpense, updateExpenses } from "../util/http";
+import LoadingOverlay from "../components/UI/LoadingOverlay";
 
 const ManageExpense = ({ route, navigation }) => {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState()
   const editedExpenseId = route.params?.expenseId;
   const isEditing = !!editedExpenseId; // '!!' is used to convert a variable to a boolean.
 
   const expenseCtx = useContext(ExpensesContext);
-  const selectedExpense = expenseCtx.expenses.find((expense) => expense.id === editedExpenseId)
+  const selectedExpense = expenseCtx.expenses.find(
+    (expense) => expense.id === editedExpenseId,
+  );
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -19,23 +24,31 @@ const ManageExpense = ({ route, navigation }) => {
     });
   }, [navigation, isEditing]);
 
-  function deleteExpenseHandler() {
+  async function deleteExpenseHandler() {
+    setIsSubmitting(true)
+    await deleteExpenses(editedExpenseId);
     expenseCtx.deleteExpense(editedExpenseId);
-    return navigation.goBack();
+    navigation.goBack();
   }
 
   function cancelHandler() {
-    return navigation.goBack();
+    navigation.goBack();
   }
 
-  function confirmHandler(expenseData) {
+  async function confirmHandler(expenseData) {
+    setIsSubmitting(true)
     if (isEditing) {
+      await updateExpenses(editedExpenseId, expenseData)
       expenseCtx.updateExpense(editedExpenseId, expenseData);
     } else {
-      storeExpense(expenseData)
-      expenseCtx.addExpense(expenseData);
+      const id = await storeExpense(expenseData);
+      expenseCtx.addExpense({ ...expenseData, id: id });
     }
-    return navigation.goBack();
+    navigation.goBack();
+  }
+
+  if (isSubmitting) {
+     return <LoadingOverlay />
   }
 
   return (
