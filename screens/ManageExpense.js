@@ -6,10 +6,11 @@ import { ExpensesContext } from "../store/expenses-context";
 import ExpenseForm from "../components/ManageExpense/ExpenseForm";
 import { deleteExpenses, storeExpense, updateExpenses } from "../util/http";
 import LoadingOverlay from "../components/UI/LoadingOverlay";
+import ErrorOverlay from "../components/UI/ErrorOverlay";
 
 const ManageExpense = ({ route, navigation }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState()
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState();
   const editedExpenseId = route.params?.expenseId;
   const isEditing = !!editedExpenseId; // '!!' is used to convert a variable to a boolean.
 
@@ -25,10 +26,15 @@ const ManageExpense = ({ route, navigation }) => {
   }, [navigation, isEditing]);
 
   async function deleteExpenseHandler() {
-    setIsSubmitting(true)
-    await deleteExpenses(editedExpenseId);
-    expenseCtx.deleteExpense(editedExpenseId);
-    navigation.goBack();
+    setIsSubmitting(true);
+    try {
+      await deleteExpenses(editedExpenseId);
+      expenseCtx.deleteExpense(editedExpenseId);
+      navigation.goBack();
+    } catch (error) {
+      setError("Could not delete expense - please try again later!");
+      setIsSubmitting(false)
+    }
   }
 
   function cancelHandler() {
@@ -36,19 +42,29 @@ const ManageExpense = ({ route, navigation }) => {
   }
 
   async function confirmHandler(expenseData) {
-    setIsSubmitting(true)
-    if (isEditing) {
-      await updateExpenses(editedExpenseId, expenseData)
+    setIsSubmitting(true);
+    try {
+      if (isEditing) {
+      await updateExpenses(editedExpenseId, expenseData);
       expenseCtx.updateExpense(editedExpenseId, expenseData);
     } else {
       const id = await storeExpense(expenseData);
       expenseCtx.addExpense({ ...expenseData, id: id });
     }
     navigation.goBack();
+    } catch (error) {
+      setError('Could not save data - please try again later!');
+      setIsSubmitting(false)
+    }
+  }
+
+
+  if (error && !isSubmitting) {
+    return <ErrorOverlay message={error} />
   }
 
   if (isSubmitting) {
-     return <LoadingOverlay />
+    return <LoadingOverlay />;
   }
 
   return (
